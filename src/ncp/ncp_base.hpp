@@ -98,6 +98,7 @@ public:
      */
     spinel_iid_t GetCurCommandIid(void) const;
 
+
     /**
      * This method sends data to host via specific stream.
      *
@@ -638,6 +639,7 @@ protected:
     otError     HandlePendingEnergyScan(PendingCommandEntry *entry);
     static void HandlePendingCommands(Tasklet &aTasklet);
     void        HandlePendingCommands(void);
+    size_t      GetPendingCommandQueueSize(void);
 #endif // OPENTHREAD_RADIO || OPENTHREAD_CONFIG_LINK_RAW_ENABLE
 #endif // OPENTHREAD_CONFIG_MULTIPAN_RCP_ENABLE
 
