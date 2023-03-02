@@ -30,6 +30,7 @@ set(COMMON_INCLUDES
     ${PROJECT_SOURCE_DIR}/include
     ${PROJECT_SOURCE_DIR}/src
     ${PROJECT_SOURCE_DIR}/src/core
+    ${PROJECT_SOURCE_DIR}/src/core/radio
     ${PROJECT_SOURCE_DIR}/examples/platforms/simulation
 )
 
@@ -40,7 +41,6 @@ set(COMMON_COMPILE_OPTIONS
 
 set(COMMON_COMPILE_OPTIONS_RCP
     -DOPENTHREAD_RADIO=1
-    -DOPENTHREAD_MULTIPAN_RCP=1
     -DOPENTHREAD_SPINEL_CONFIG_OPENTHREAD_MESSAGE_ENABLE=1
 )
 
@@ -731,6 +731,20 @@ target_compile_options(ot-test-multipan-rcp
     PRIVATE
         ${COMMON_COMPILE_OPTIONS_RCP}
 )
+
+if(OT_MULTIPAN_RCP)
+    target_compile_definitions(ot-test-multipan-rcp
+        PRIVATE
+            "OPENTHREAD_CONFIG_MULTIPAN_RCP_ENABLE=1"
+    )
+endif()
+
+if(OT_POSIX_MAX_POWER_TABLE)
+    target_compile_definitions(ot-test-multipan-rcp
+        PRIVATE
+            "OPENTHREAD_POSIX_CONFIG_MAX_POWER_TABLE_ENABLE=1"
+    )
+endif()
 
 target_link_libraries(ot-test-multipan-rcp
     PRIVATE

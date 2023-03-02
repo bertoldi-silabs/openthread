@@ -77,6 +77,21 @@ bool otPlatRadioIsCoexEnabled(otInstance *) { return true; }
 
 otError otPlatRadioSetCoexEnabled(otInstance *, bool) { return OT_ERROR_NOT_IMPLEMENTED; }
 
+
+#if OPENTHREAD_POSIX_CONFIG_MAX_POWER_TABLE_ENABLE
+otError otPlatRadioSetChannelTargetPower(otInstance *aInstance, uint8_t aChannel, int16_t aTargetPower) { return OT_ERROR_NONE; }
+
+otError otPlatRadioAddCalibratedPower(otInstance    *aInstance,
+                                      uint8_t        aChannel,
+                                      int16_t        aActualPower,
+                                      const uint8_t *aRawPowerSetting,
+                                      uint16_t       aRawPowerSettingLength) 
+{ return OT_ERROR_NONE; }
+
+otError otPlatRadioClearCalibratedPowers(otInstance *aInstance) { return OT_ERROR_NONE; }
+
+#endif
+
 class TestNcp : public NcpBase
 {
     public:
@@ -134,7 +149,10 @@ class TestNcp : public NcpBase
 
         void processPendingCommands()
         {
+            #if OPENTHREAD_CONFIG_MULTIPAN_RCP_ENABLE && \
+                (OPENTHREAD_RADIO || OPENTHREAD_CONFIG_LINK_RAW_ENABLE)
             HandlePendingCommands();
+            #endif
         }
 
         void updateSpinelStatus()
@@ -175,8 +193,25 @@ class TestNcp : public NcpBase
                     (aTid == getLastTid()));
         }
 
-        size_t getPendingQueueSize() { return GetPendingCommandQueueSize(); };
-        size_t getMaxPendingQueueSize() { return kPendingCommandQueueSize; };
+        size_t getPendingQueueSize()
+        { 
+        #if OPENTHREAD_CONFIG_MULTIPAN_RCP_ENABLE && \
+            (OPENTHREAD_RADIO || OPENTHREAD_CONFIG_LINK_RAW_ENABLE)
+            return GetPendingCommandQueueSize();
+        #else
+            return 0;
+        #endif
+        };
+
+        size_t getMaxPendingQueueSize()
+        {
+        #if OPENTHREAD_CONFIG_MULTIPAN_RCP_ENABLE && \
+            (OPENTHREAD_RADIO || OPENTHREAD_CONFIG_LINK_RAW_ENABLE)
+            return kPendingCommandQueueSize; 
+        #else
+            return 0;
+        #endif
+        };
 
     private:
         uint8_t mLastHeader;
@@ -681,10 +716,13 @@ void TestNcpBaseMultiHostEnergyScan()
     VerifyOrQuit(ncp->getPendingQueueSize() == 0);
 }
 
-void TestNcpBase()
+int main(void)
 {
     sDefaultFrame.mPsdu = sDefaultMessage.mPsdu;
     sTxFrame = &sDefaultFrame;
+
+#if OPENTHREAD_CONFIG_MULTIPAN_RCP_ENABLE && \
+    (OPENTHREAD_RADIO || OPENTHREAD_CONFIG_LINK_RAW_ENABLE)
 
     TestNcpBaseTransmitWithLinkRawDisabled();
     TestNcpBaseTransmitWithLinkRawEnabled();
@@ -699,12 +737,11 @@ void TestNcpBase()
     TestNcpBaseTransmitWhileScanning();
     TestNcpBaseMultiHostTransmit();
     TestNcpBaseMultiHostEnergyScan();
-}
-
-int main(void)
-{
-    TestNcpBase();
 
     printf("\nAll tests passed\n");
+#else
+    printf("MULTIPAN_RCP feature and RADIO/LINK_RAW option are not enabled\n");
+#endif
+
     return 0;
 }
