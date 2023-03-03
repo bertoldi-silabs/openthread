@@ -67,31 +67,6 @@ static otRadioFrame *sTxFrame;
 
 otRadioFrame *otPlatRadioGetTransmitBuffer(otInstance * aInstance) { return sTxFrame; }
 
-otError otPlatRadioGetCcaEnergyDetectThreshold(otInstance *, int8_t *) { return OT_ERROR_NONE; }
-
-otError otPlatRadioGetCoexMetrics(otInstance *, otRadioCoexMetrics *) { return OT_ERROR_NONE; }
-
-otError otPlatRadioGetTransmitPower(otInstance *, int8_t *) { return OT_ERROR_NONE; }
-
-bool otPlatRadioIsCoexEnabled(otInstance *) { return true; }
-
-otError otPlatRadioSetCoexEnabled(otInstance *, bool) { return OT_ERROR_NOT_IMPLEMENTED; }
-
-
-#if OPENTHREAD_POSIX_CONFIG_MAX_POWER_TABLE_ENABLE
-otError otPlatRadioSetChannelTargetPower(otInstance *aInstance, uint8_t aChannel, int16_t aTargetPower) { return OT_ERROR_NONE; }
-
-otError otPlatRadioAddCalibratedPower(otInstance    *aInstance,
-                                      uint8_t        aChannel,
-                                      int16_t        aActualPower,
-                                      const uint8_t *aRawPowerSetting,
-                                      uint16_t       aRawPowerSettingLength) 
-{ return OT_ERROR_NONE; }
-
-otError otPlatRadioClearCalibratedPowers(otInstance *aInstance) { return OT_ERROR_NONE; }
-
-#endif
-
 class TestNcp : public NcpBase
 {
     public:
@@ -178,8 +153,8 @@ class TestNcp : public NcpBase
 
         uint8_t getLastIid()
         {
+            /* Return as SPINEL_HEADER_IID_N format without shift */
             return SPINEL_HEADER_IID_MASK & mLastHeader;
-            //return SPINEL_HEADER_GET_IID(mLastHeader);
         }
 
         uint8_t getLastTid()
@@ -324,10 +299,13 @@ class TestHost
 
         void finishTransmit()
         {
-            // Resetting instance submac state to sleep by resetting link
+            /* Reset instance submac state to sleep by resetting link
+               This is needed for a second transmit command to succeed
+               as the HandleTimer method will not be called to reset the submac */
             disableRawLink();
             enableRawLink();
 
+            /* Proceed with transmit done callback from ncp */
             mNcp->processTransmit();
         };
 
@@ -361,6 +339,9 @@ class TestHost
             
             mNcp->Receive(mBuf + mOffset, frame_len);
 
+            /* Some spinel commands immediately send queued responses when command is complete
+               while others require a separate command to the ncp in order to receive the response.
+               If a response is needed and not immediately received. Issue a command to update the status. */
             requestResponse = needsResponse && !mNcp->gotResponse(mIid, mTid);
 
             mTid = SPINEL_GET_NEXT_TID(mTid);
@@ -393,7 +374,10 @@ void TestNcpBaseTransmitWithLinkRawDisabled()
     TestHost host(ncp, SPINEL_HEADER_IID_0);
    
     host.disableRawLink();
+
+    /* Test that the response status is Invalid State when transmit is skipped due to disabled link */
     VerifyOrQuit(host.startTransmit() == SPINEL_STATUS_INVALID_STATE);
+    VerifyOrQuit(ncp->getPendingQueueSize() == 0);
 
     testFreeInstance(instance);
 }
@@ -408,6 +392,7 @@ void TestNcpBaseTransmitWithLinkRawEnabled()
 
     host.enableRawLink();
 
+    /* Test that the response status is OK when transmit is started successfully */
     VerifyOrQuit(host.startTransmit() == SPINEL_STATUS_OK);
     VerifyOrQuit(ncp->getPendingQueueSize() == 0);
 
@@ -418,6 +403,7 @@ void TestNcpBaseTransmitWithLinkRawEnabled()
 
 void TestNcpBaseTransmitWithNoBuffers()
 {
+    /* Initialize instance without an available tx buffer */
     sTxFrame = nullptr;
 
     ot::Instance *instance = testInitInstance();
@@ -428,10 +414,13 @@ void TestNcpBaseTransmitWithNoBuffers()
 
     host.enableRawLink();
 
+    /* Test that the response status is NOMEM when transmit is started without an available TxBuffer */
     VerifyOrQuit(host.startTransmit() == SPINEL_STATUS_NOMEM);
-    
+    VerifyOrQuit(ncp->getPendingQueueSize() == 0);
+
     testFreeInstance(instance);
 
+    /* Reset static tx buffer reference for remaining tests */
     sTxFrame = &sDefaultFrame;
 }
 
@@ -448,12 +437,15 @@ void TestNcpBaseTransmitWhileLinkIsBusy()
     VerifyOrQuit(host.startTransmit() == SPINEL_STATUS_OK);
     VerifyOrQuit(ncp->getPendingQueueSize() == 0);
 
+    /* Test that the response status is OK when transmit is already in progress
+       Test that requesting a transmit when already in progress enqueues the command */
     VerifyOrQuit(host.startTransmit() == SPINEL_STATUS_OK);
     VerifyOrQuit(ncp->getPendingQueueSize() == 1);
 
     VerifyOrQuit(host.startTransmit() == SPINEL_STATUS_OK);
     VerifyOrQuit(ncp->getPendingQueueSize() == 2);
 
+    /* Test that transmit command is dequeued when transmit is complete */
     host.finishTransmit();
     VerifyOrQuit(ncp->getPendingQueueSize() == 1);
 
@@ -476,18 +468,18 @@ void TestNcpBaseExceedPendingCommandQueueSize()
 
     host.enableRawLink();
     
+    /* Test that the response status is OK and queue size increases until its maximum size */
     for (size_t i = 0; i <= ncp->getMaxPendingQueueSize(); i++)
     {
         VerifyOrQuit(host.startTransmit() == SPINEL_STATUS_OK);
         VerifyOrQuit(ncp->getPendingQueueSize() == i);
     }
-    //printf("Queue Size: %zu\n", ncp->getPendingQueueSize());
 
+    /* Test that the response status is NOMEM when requesting transmit with a full queue */
     VerifyOrQuit(host.startTransmit() == SPINEL_STATUS_NOMEM);
     VerifyOrQuit(ncp->getPendingQueueSize() == ncp->getMaxPendingQueueSize());
 
-    //printf("Queue Size: %zu\n", ncp->getPendingQueueSize());
-
+    /* Test that queue size decreases from maximum size to empty */
     for (size_t i = ncp->getMaxPendingQueueSize(); i > 0; i--)
     {
         VerifyOrQuit(ncp->getPendingQueueSize() == i);
@@ -510,11 +502,12 @@ void TestNcpBaseEnergyScanWithLinkRawDisabled()
     TestHost host(ncp, SPINEL_HEADER_IID_0);
 
     host.disableRawLink();
+
+    /* Test that the response status is OK even though energy scan is skipped due to disabled link */
     VerifyOrQuit((spinel_status_t)host.startEnergyScan() == SPINEL_STATUS_OK);
     VerifyOrQuit(ncp->getPendingQueueSize() == 0);
 
-    //Put test condition here. Maybe that the queue won't fill for invalid energy scan without error
-
+    /* Test that the queue size doesn't increase even though status is OK */
     VerifyOrQuit((spinel_status_t)host.startEnergyScan() == SPINEL_STATUS_OK);
     VerifyOrQuit(ncp->getPendingQueueSize() == 0);
 
@@ -530,7 +523,10 @@ void TestNcpBaseEnergyScanWithLinkRawEnabled()
     TestHost host(ncp, SPINEL_HEADER_IID_0);
 
     host.enableRawLink();
+
+    /* Test that the response status is Invalid Argument when channel mask is not set */
     VerifyOrQuit((spinel_status_t)host.startEnergyScan() == SPINEL_STATUS_INVALID_ARGUMENT);
+    VerifyOrQuit(ncp->getPendingQueueSize() == 0);
 
     testFreeInstance(instance);
 }
@@ -546,7 +542,9 @@ void TestNcpBaseEnergyScanWithLinkRawEnabledAndMaskSet()
     host.enableRawLink();
     host.setScanChannelMask(kTestMacScanChannelMask);
 
+    /* Test that the response status is Energy Scan State when energy scan starts successfully */
     VerifyOrQuit((spinel_scan_state_t)host.startEnergyScan() == SPINEL_SCAN_STATE_ENERGY);
+    VerifyOrQuit(ncp->getPendingQueueSize() == 0);
 
     ncp->processEnergyScan();
 
@@ -570,16 +568,18 @@ void TestNcpBaseEnergyScanWhileLinkIsBusy()
     VerifyOrQuit((spinel_scan_state_t)host.startEnergyScan() == SPINEL_SCAN_STATE_ENERGY);
     VerifyOrQuit(ncp->getPendingQueueSize() == 0);
 
+    /* Test that the response status is Invalid State when energy scan is already in progress
+       Test that requesting an energy scan when already in progress does not enqueue the command */
     VerifyOrQuit((spinel_status_t)host.startEnergyScan() == SPINEL_STATUS_INVALID_STATE);
     VerifyOrQuit(ncp->getPendingQueueSize() == 0);
 
-    //These calls do not update the queue - Omit from test?
     VerifyOrQuit((spinel_status_t)host.startEnergyScan() == SPINEL_STATUS_INVALID_STATE);
     VerifyOrQuit(ncp->getPendingQueueSize() == 0);
 
     ncp->processEnergyScan();
     VerifyOrQuit(ncp->getPendingQueueSize() == 0);
 
+    /* Test that the response status is Energy Scan State when previous energy scan is complete */
     VerifyOrQuit((spinel_scan_state_t)host.startEnergyScan() == SPINEL_SCAN_STATE_ENERGY);
     VerifyOrQuit(ncp->getPendingQueueSize() == 0);
 
@@ -604,15 +604,19 @@ void TestNcpBaseEnergyScanWhileTransmitting()
 
     host.setScanChannelMask(kTestMacScanChannelMask);
 
+    /* Test that the response status is Idle Scan State when transmit is in progress
+       Test that requesting energy scan while transmit is active enqueues the command */
     VerifyOrQuit((spinel_scan_state_t)host.startEnergyScan() == SPINEL_SCAN_STATE_IDLE);
     VerifyOrQuit(ncp->getPendingQueueSize() == 1);
 
     VerifyOrQuit((spinel_scan_state_t)host.startEnergyScan() == SPINEL_SCAN_STATE_IDLE);
     VerifyOrQuit(ncp->getPendingQueueSize() == 2);
 
+    /* Test that energy scan command is dequeued when transmit is complete */
     host.finishTransmit();
     VerifyOrQuit(ncp->getPendingQueueSize() == 1);
 
+    /* Test that energy scan command is dequeued when energy scan is complete */
     ncp->processEnergyScan();
     VerifyOrQuit(ncp->getPendingQueueSize() == 0);
 
@@ -636,10 +640,20 @@ void TestNcpBaseTransmitWhileScanning()
     VerifyOrQuit((spinel_scan_state_t)host.startEnergyScan() == SPINEL_SCAN_STATE_ENERGY);
     VerifyOrQuit(ncp->getPendingQueueSize() == 0);  
 
+    /* Test that the response status is OK when energy scan is in progress
+       Test that requesting transmit while energy scan is active enqueues the command */
     VerifyOrQuit(host.startTransmit() == SPINEL_STATUS_OK);
-    VerifyOrQuit(ncp->getPendingQueueSize() == 1);  
+    VerifyOrQuit(ncp->getPendingQueueSize() == 1);
 
+    VerifyOrQuit(host.startTransmit() == SPINEL_STATUS_OK);
+    VerifyOrQuit(ncp->getPendingQueueSize() == 2);  
+
+    /* Test that transmit command is dequeued when energy scan is complete */
     ncp->processEnergyScan();
+    VerifyOrQuit(ncp->getPendingQueueSize() == 1);
+
+    /* Test that transmit command is dequeued when transmit is complete */
+    host.finishTransmit();
     VerifyOrQuit(ncp->getPendingQueueSize() == 0);
 
     host.finishTransmit();
@@ -659,6 +673,7 @@ void TestNcpBaseMultiHostTransmit()
     host0.enableRawLink();
     host1.enableRawLink();
 
+    /* Test that a host with a non-zero iid can request a transmit */
     VerifyOrQuit(host0.startTransmit() == SPINEL_STATUS_OK);
     VerifyOrQuit(ncp->getPendingQueueSize() == 0);  
 
@@ -670,6 +685,8 @@ void TestNcpBaseMultiHostTransmit()
 
     host1.enableRawLink();
 
+    /* Test that a host with a different iid can request a transmit when already in progress
+       Test that command is enqueued when a separate host requests a transmit */
     VerifyOrQuit(host1.startTransmit() == SPINEL_STATUS_OK);
     VerifyOrQuit(ncp->getPendingQueueSize() == 1);
 
@@ -694,6 +711,7 @@ void TestNcpBaseMultiHostEnergyScan()
     host1.enableRawLink();
     host1.setScanChannelMask(kTestMacScanChannelMask);
 
+    /* Test that a host with a non-zero iid can request an energy scan */
     VerifyOrQuit((spinel_scan_state_t)host0.startEnergyScan() == SPINEL_SCAN_STATE_ENERGY);
     VerifyOrQuit(ncp->getPendingQueueSize() == 0);  
 
@@ -703,12 +721,15 @@ void TestNcpBaseMultiHostEnergyScan()
     VerifyOrQuit((spinel_scan_state_t)host0.startEnergyScan() == SPINEL_SCAN_STATE_ENERGY);
     VerifyOrQuit(ncp->getPendingQueueSize() == 0);
 
+    /* Test that a host with a different iid will fail to request an energy scan when already in progress
+       Test that command is not enqueued when a separate host requests an energy scan */
     VerifyOrQuit((spinel_status_t)host1.startEnergyScan() == SPINEL_STATUS_INVALID_STATE);
     VerifyOrQuit(ncp->getPendingQueueSize() == 0);
 
     ncp->processEnergyScan();
     VerifyOrQuit(ncp->getPendingQueueSize() == 0);
 
+    /* Test that a host with a different iid can to request an energy scan when other host's scan finishes */
     VerifyOrQuit((spinel_scan_state_t)host1.startEnergyScan() == SPINEL_SCAN_STATE_ENERGY);
     VerifyOrQuit(ncp->getPendingQueueSize() == 0);
 
