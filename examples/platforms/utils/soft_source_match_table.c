@@ -85,6 +85,22 @@ void utilsSoftSrcMatchSetPanId(uint8_t iid, uint16_t aPanId)
 
     printPanIdTable();
 }
+
+uint8_t utilsSoftSrcMatchFindIidFromPanId(otPanId panId)
+{
+    uint8_t iid = 0xFF;
+
+    for (uint8_t index = 0; index < RADIO_CONFIG_SRC_MATCH_PANID_NUM; index++)
+    {
+        if (sPanId[index] == panId)
+        {
+            iid = index + 1;
+            break;
+        }
+    }
+
+    return iid;
+}
 #endif // RADIO_CONFIG_SRC_MATCH_SHORT_ENTRY_NUM || RADIO_CONFIG_SRC_MATCH_EXT_ENTRY_NUM
 
 #if RADIO_CONFIG_SRC_MATCH_SHORT_ENTRY_NUM
@@ -204,13 +220,13 @@ otError otPlatRadioAddSrcMatchShortEntry(otInstance *aInstance, uint16_t aShortA
     otEXPECT(!(entry >= 0 && entry < RADIO_CONFIG_SRC_MATCH_SHORT_ENTRY_NUM));
 #endif
 
-    entry = findSrcMatchShortAvailEntry(iid);
+    entry = findSrcMatchShortAvailEntry((uint8_t)iid);
 
     otLogDebgPlat("Add ShortAddr: iid=%d, entry=%d, addr=0x%04x", iid, entry, aShortAddress);
 
     otEXPECT_ACTION(entry >= 0 && entry < RADIO_CONFIG_SRC_MATCH_SHORT_ENTRY_NUM, error = OT_ERROR_NO_BUFS);
 
-    addToSrcMatchShortIndirect(iid, (uint16_t)entry, aShortAddress);
+    addToSrcMatchShortIndirect((uint8_t)iid, (uint16_t)entry, aShortAddress);
 
 exit:
     return error;
@@ -226,12 +242,12 @@ otError otPlatRadioClearSrcMatchShortEntry(otInstance *aInstance, uint16_t aShor
 
     iid = otNcpPlatGetCurCommandIid();
 
-    entry = utilsSoftSrcMatchShortFindEntry(iid, aShortAddress);
+    entry = utilsSoftSrcMatchShortFindEntry((uint8_t)iid, aShortAddress);
     otLogDebgPlat("Clear ShortAddr: iid=%d, entry=%d, addr=0x%04x", iid, entry, aShortAddress);
 
     otEXPECT_ACTION(entry >= 0 && entry < RADIO_CONFIG_SRC_MATCH_SHORT_ENTRY_NUM, error = OT_ERROR_NO_ADDRESS);
 
-    removeFromSrcMatchShortIndirect(iid, (uint16_t)entry);
+    removeFromSrcMatchShortIndirect((uint8_t)iid, (uint16_t)entry);
 
 exit:
     return error;
@@ -425,19 +441,3 @@ void otPlatRadioClearSrcMatchExtEntries(otInstance *aInstance)
     printExtEntryTable(iid);
 }
 #endif // RADIO_CONFIG_SRC_MATCH_EXT_ENTRY_NUM
-
-uint8_t utilsSoftSrcMatchFindIidFromPanId(otPanId panId)
-{
-    uint8_t iid = 0xFF;
-
-    for (uint8_t index = 0; index < RADIO_CONFIG_SRC_MATCH_PANID_NUM; index++)
-    {
-        if (sPanId[index] == panId)
-        {
-            iid = index + 1;
-            break;
-        }
-    }
-
-    return iid;
-}
