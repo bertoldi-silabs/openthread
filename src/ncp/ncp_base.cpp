@@ -309,7 +309,7 @@ NcpBase::NcpBase(Instance *aInstance)
 
 NcpBase *NcpBase::GetNcpInstance(void) { return sNcpInstance; }
 
-spinel_iid_t NcpBase::GetCurCommandIid(void) { return mCurCommandIID; }
+spinel_iid_t NcpBase::GetCurCommandIid(void) const { return mCurCommandIID; }
 
 void NcpBase::ResetCounters(void)
 {
