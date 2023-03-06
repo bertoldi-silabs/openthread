@@ -30,8 +30,12 @@ set(COMMON_INCLUDES
     ${PROJECT_SOURCE_DIR}/include
     ${PROJECT_SOURCE_DIR}/src
     ${PROJECT_SOURCE_DIR}/src/core
-    ${PROJECT_SOURCE_DIR}/src/core/radio
     ${PROJECT_SOURCE_DIR}/examples/platforms/simulation
+)
+
+set(COMMON_INCLUDES_RCP
+    ${COMMON_INCLUDES}
+    ${PROJECT_SOURCE_DIR}/src/core/radio
 )
 
 set(COMMON_COMPILE_OPTIONS
@@ -724,7 +728,7 @@ add_executable(ot-test-multipan-rcp
 
 target_include_directories(ot-test-multipan-rcp
     PRIVATE
-        ${COMMON_INCLUDES}
+        ${COMMON_INCLUDES_RCP}
 )
 
 target_compile_options(ot-test-multipan-rcp
@@ -740,7 +744,7 @@ if(OT_MULTIPAN_RCP)
 endif()
 
 if(OT_POSIX_MAX_POWER_TABLE)
-    target_compile_definitions(ot-test-multipan-rcp
+    target_compile_definitions(ot-test-platform-rcp
         PRIVATE
             "OPENTHREAD_POSIX_CONFIG_MAX_POWER_TABLE_ENABLE=1"
     )
