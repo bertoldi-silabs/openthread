@@ -95,8 +95,10 @@ set(COMMON_LIBS
     openthread-hdlc
     ot-test-platform-ftd
     openthread-ftd
+    ot-test-platform-ftd
     ${OT_MBEDTLS}
     ot-config
+    openthread-ftd
 )
 
 set(COMMON_LIBS_RCP
