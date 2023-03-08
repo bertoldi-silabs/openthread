@@ -77,11 +77,11 @@ jobs:
     - name: Bootstrap
       run: |
         sudo rm /etc/apt/sources.list.d/* && sudo apt-get update
-        sudo apt-get --no-install-recommends install -y ninja-build lcov cmake
+        sudo apt-get --no-install-recommends install -y ninja-build lcov
     - name: Build Simulation
       run: ./script/cmake-build simulation
     - name: Test Simulation
-      run: ./build/simulation/tests/unit/ot-test-multipan-rcp
+      run: cd build/simulation && ninja test
     - name: Build POSIX
       run: ./script/cmake-build posix
     - name: Test POSIX
