@@ -70,7 +70,7 @@ otRadioFrame *otPlatRadioGetTransmitBuffer(otInstance *aInstance) { return sTxFr
 class TestNcp : public NcpBase
 {
 public:
-    TestNcp(ot::Instance *aInstance)
+    explicit TestNcp(ot::Instance *aInstance)
         : mLastHeader(0)
         , mLastStatus(0)
         , NcpBase(aInstance)
@@ -105,7 +105,7 @@ public:
         updateSpinelStatus();
     }
 
-    void Receive(uint8_t *aBuffer, size_t bufferSize) { HandleReceive(aBuffer, (uint16_t)bufferSize); }
+    void Receive(uint8_t *aBuffer, size_t bufferSize) { HandleReceive(aBuffer, static_cast<uint16_t>(bufferSize)); }
 
     void processTransmit()
     {
@@ -144,11 +144,11 @@ public:
         SuccessOrQuit(decoder.ReadUintPacked(propKey));
         SuccessOrQuit(decoder.ReadUintPacked(status));
 
-        mLastStatus = (uint32_t)status;
+        mLastStatus = static_cast<uint32_t>(status);
     }
-    uint32_t getSpinelStatus() { return mLastStatus; }
+    uint32_t getSpinelStatus() const { return mLastStatus; }
 
-    uint8_t getLastIid()
+    uint8_t getLastIid() const
     {
         /* Return as SPINEL_HEADER_IID_N format without shift */
         return SPINEL_HEADER_IID_MASK & mLastHeader;
@@ -198,14 +198,14 @@ public:
 
     void createLinkEnableFrame(bool isEnabled)
     {
-        startFrame(mEncoder, SPINEL_CMD_PROP_VALUE_SET, SPINEL_PROP_PHY_ENABLED);
+        startFrame(SPINEL_CMD_PROP_VALUE_SET, SPINEL_PROP_PHY_ENABLED);
         SuccessOrQuit(mEncoder.WriteBool(isEnabled));
-        endFrame(mEncoder, "Enable Frame");
+        endFrame("Enable Frame");
     }
 
     void createTransmitFrame()
     {
-        startFrame(mEncoder, SPINEL_CMD_PROP_VALUE_SET, SPINEL_PROP_STREAM_RAW);
+        startFrame(SPINEL_CMD_PROP_VALUE_SET, SPINEL_PROP_STREAM_RAW);
 
         SuccessOrQuit(mEncoder.WriteDataWithLen(sDefaultFrame.mPsdu, sDefaultFrame.mLength));
         SuccessOrQuit(mEncoder.WriteUint8(sDefaultFrame.mChannel));
@@ -218,29 +218,29 @@ public:
         SuccessOrQuit(mEncoder.WriteUint32(sDefaultFrame.mInfo.mTxInfo.mTxDelay));
         SuccessOrQuit(mEncoder.WriteUint32(sDefaultFrame.mInfo.mTxInfo.mTxDelayBaseTime));
 
-        endFrame(mEncoder, "Transmit Frame");
+        endFrame("Transmit Frame");
     }
 
     void createScanChannelMaskFrame(uint8_t aMask)
     {
-        startFrame(mEncoder, SPINEL_CMD_PROP_VALUE_SET, SPINEL_PROP_MAC_SCAN_MASK);
+        startFrame(SPINEL_CMD_PROP_VALUE_SET, SPINEL_PROP_MAC_SCAN_MASK);
         SuccessOrQuit(mEncoder.WriteUint8(aMask));
-        endFrame(mEncoder, "Channel Mask Frame");
+        endFrame("Channel Mask Frame");
     }
 
     void createMacScanFrame()
     {
         uint8_t state = SPINEL_SCAN_STATE_ENERGY;
 
-        startFrame(mEncoder, SPINEL_CMD_PROP_VALUE_SET, SPINEL_PROP_MAC_SCAN_STATE);
+        startFrame(SPINEL_CMD_PROP_VALUE_SET, SPINEL_PROP_MAC_SCAN_STATE);
         SuccessOrQuit(mEncoder.WriteUint8(state));
-        endFrame(mEncoder, "Scan State Frame");
+        endFrame("Scan State Frame");
     }
 
     void createReadStatusFrame()
     {
-        startFrame(mEncoder, SPINEL_CMD_PROP_VALUE_GET, SPINEL_PROP_LAST_STATUS);
-        endFrame(mEncoder, "Read Status Frame");
+        startFrame(SPINEL_CMD_PROP_VALUE_GET, SPINEL_PROP_LAST_STATUS);
+        endFrame("Read Status Frame");
     }
 
     void enableRawLink()
@@ -262,7 +262,7 @@ public:
         static const bool getResponse = true;
         createTransmitFrame();
         sendToRcp(getResponse);
-        return (spinel_status_t)(mNcp->getSpinelStatus());
+        return static_cast<spinel_status_t>(mNcp->getSpinelStatus());
     };
 
     void setScanChannelMask(uint32_t aMask)
@@ -298,20 +298,20 @@ public:
     };
 
 private:
-    void startFrame(Spinel::Encoder &aEncoder, unsigned int aCommand, spinel_prop_key_t aKey)
+    void startFrame(unsigned int aCommand, spinel_prop_key_t aKey)
     {
         uint8_t spinelHeader = SPINEL_HEADER_FLAG | mIid | mTid;
 
-        SuccessOrQuit(aEncoder.BeginFrame(Spinel::Buffer::kPriorityLow));
-        SuccessOrQuit(aEncoder.WriteUint8(spinelHeader));
-        SuccessOrQuit(aEncoder.WriteUintPacked(aCommand));
-        SuccessOrQuit(aEncoder.WriteUintPacked(aKey));
+        SuccessOrQuit(mEncoder.BeginFrame(Spinel::Buffer::kPriorityLow));
+        SuccessOrQuit(mEncoder.WriteUint8(spinelHeader));
+        SuccessOrQuit(mEncoder.WriteUintPacked(aCommand));
+        SuccessOrQuit(mEncoder.WriteUintPacked(aKey));
     }
 
-    void endFrame(Spinel::Encoder &aEncoder, const char *aTextMessage)
+    void endFrame(const char *aTextMessage)
     {
         static const uint16_t display_length = 64;
-        SuccessOrQuit(aEncoder.EndFrame());
+        SuccessOrQuit(mEncoder.EndFrame());
         // DumpBuffer(aTextMessage, mBuf, display_length);
     }
 
