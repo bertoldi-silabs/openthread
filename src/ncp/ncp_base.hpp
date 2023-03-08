@@ -98,7 +98,6 @@ public:
      */
     spinel_iid_t GetCurCommandIid(void) const;
 
-
     /**
      * This method sends data to host via specific stream.
      *

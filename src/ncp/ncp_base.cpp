@@ -965,7 +965,6 @@ void NcpBase::HandlePendingCommands(void)
 
 size_t NcpBase::GetPendingCommandQueueSize(void) { return mPendingCommandQueueTail - mPendingCommandQueueHead; }
 
-
 #endif // OPENTHREAD_RADIO || OPENTHREAD_CONFIG_LINK_RAW_ENABLE
 #endif // OPENTHREAD_CONFIG_MULTIPAN_RCP_ENABLE
 

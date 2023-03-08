@@ -61,308 +61,293 @@ struct RadioMessage
 } OT_TOOL_PACKED_END;
 
 static struct RadioMessage sDefaultMessage;
-static otRadioFrame sDefaultFrame;
+static otRadioFrame        sDefaultFrame;
 
 static otRadioFrame *sTxFrame;
 
-otRadioFrame *otPlatRadioGetTransmitBuffer(otInstance * aInstance) { return sTxFrame; }
+otRadioFrame *otPlatRadioGetTransmitBuffer(otInstance *aInstance) { return sTxFrame; }
 
 class TestNcp : public NcpBase
 {
-    public:
-        TestNcp(ot::Instance *aInstance) : mLastHeader(0), mLastStatus(0),
-        NcpBase(aInstance)
-        {
-            memset(mMsgBuffer, 0, kTestBufferSize);
-            mTxFrameBuffer.SetFrameAddedCallback(HandleFrameAddedToNcpBuffer, this);
-            mTxFrameBuffer.SetFrameRemovedCallback(nullptr, this);
-        };
+public:
+    TestNcp(ot::Instance *aInstance)
+        : mLastHeader(0)
+        , mLastStatus(0)
+        , NcpBase(aInstance)
+    {
+        memset(mMsgBuffer, 0, kTestBufferSize);
+        mTxFrameBuffer.SetFrameAddedCallback(HandleFrameAddedToNcpBuffer, this);
+        mTxFrameBuffer.SetFrameRemovedCallback(nullptr, this);
+    };
 
-        static void HandleFrameAddedToNcpBuffer(void                    *aContext,
-                                                Spinel::Buffer::FrameTag aTag,
-                                                Spinel::Buffer::Priority aPriority,
-                                                Spinel::Buffer          *aBuffer)
-        {
-            OT_UNUSED_VARIABLE(aTag);
-            OT_UNUSED_VARIABLE(aPriority);
+    static void HandleFrameAddedToNcpBuffer(void                    *aContext,
+                                            Spinel::Buffer::FrameTag aTag,
+                                            Spinel::Buffer::Priority aPriority,
+                                            Spinel::Buffer          *aBuffer)
+    {
+        OT_UNUSED_VARIABLE(aTag);
+        OT_UNUSED_VARIABLE(aPriority);
 
-            static_cast<TestNcp *>(aContext)->HandleFrameAddedToNcpBuffer(aBuffer);
-        }
+        static_cast<TestNcp *>(aContext)->HandleFrameAddedToNcpBuffer(aBuffer);
+    }
 
-        void HandleFrameAddedToNcpBuffer(Spinel::Buffer *aBuffer)
-        {
-            static const size_t display_size = 64;
+    void HandleFrameAddedToNcpBuffer(Spinel::Buffer *aBuffer)
+    {
+        static const size_t display_size = 64;
 
-            memset(mMsgBuffer, 0, kTestBufferSize);
-            SuccessOrQuit(aBuffer->OutFrameBegin());
-            aBuffer->OutFrameRead(kTestBufferSize, mMsgBuffer);
-            SuccessOrQuit(aBuffer->OutFrameRemove());
+        memset(mMsgBuffer, 0, kTestBufferSize);
+        SuccessOrQuit(aBuffer->OutFrameBegin());
+        aBuffer->OutFrameRead(kTestBufferSize, mMsgBuffer);
+        SuccessOrQuit(aBuffer->OutFrameRemove());
 
-            //DumpBuffer("Received Buffer", mMsgBuffer, display_size);
+        // DumpBuffer("Received Buffer", mMsgBuffer, display_size);
 
-            updateSpinelStatus();
-        }
+        updateSpinelStatus();
+    }
 
-        void Receive(uint8_t *aBuffer, size_t bufferSize)
-        {
-            HandleReceive(aBuffer, bufferSize);
-        }
+    void Receive(uint8_t *aBuffer, size_t bufferSize) { HandleReceive(aBuffer, bufferSize); }
 
-        void processTransmit()
-        {
-            LinkRawTransmitDone(sTxFrame, nullptr, OT_ERROR_NONE);
-            //printf("Transmit Finished\n");
-            processPendingCommands(); // Pending commands tasklet is posted by Transmit Done callback but not handled
-        };
+    void processTransmit()
+    {
+        LinkRawTransmitDone(sTxFrame, nullptr, OT_ERROR_NONE);
+        // printf("Transmit Finished\n");
+        processPendingCommands(); // Pending commands tasklet is posted by Transmit Done callback but not handled
+    };
 
-        void processEnergyScan()
-        {
-            LinkRawEnergyScanDone(Radio::kInvalidRssi);
-            //printf("Energy Scan Finished\n");
-            //processPendingCommands(); Pending commands are handled in Energy Scan Done callback
-        }
+    void processEnergyScan()
+    {
+        LinkRawEnergyScanDone(Radio::kInvalidRssi);
+        // printf("Energy Scan Finished\n");
+        // processPendingCommands(); Pending commands are handled in Energy Scan Done callback
+    }
 
-        void processPendingCommands()
-        {
-            #if OPENTHREAD_CONFIG_MULTIPAN_RCP_ENABLE && \
-                (OPENTHREAD_RADIO || OPENTHREAD_CONFIG_LINK_RAW_ENABLE)
-            HandlePendingCommands();
-            #endif
-        }
+    void processPendingCommands()
+    {
+#if OPENTHREAD_CONFIG_MULTIPAN_RCP_ENABLE && (OPENTHREAD_RADIO || OPENTHREAD_CONFIG_LINK_RAW_ENABLE)
+        HandlePendingCommands();
+#endif
+    }
 
-        void updateSpinelStatus()
-        {
-            Spinel::Decoder decoder;
+    void updateSpinelStatus()
+    {
+        Spinel::Decoder decoder;
 
-            uint8_t header;
-            unsigned int command;
-            spinel_prop_key_t propKey;
-            spinel_status_t status;
+        uint8_t           header;
+        unsigned int      command;
+        spinel_prop_key_t propKey;
+        spinel_status_t   status;
 
-            decoder.Init(mMsgBuffer, kTestBufferSize);
+        decoder.Init(mMsgBuffer, kTestBufferSize);
 
-            SuccessOrQuit(decoder.ReadUint8(mLastHeader));
-            SuccessOrQuit(decoder.ReadUintPacked(command));
-            SuccessOrQuit(decoder.ReadUintPacked(propKey));
-            SuccessOrQuit(decoder.ReadUintPacked(mLastStatus));
-        }
-        uint32_t getSpinelStatus()
-        {
-            return mLastStatus;
-        }
+        SuccessOrQuit(decoder.ReadUint8(mLastHeader));
+        SuccessOrQuit(decoder.ReadUintPacked(command));
+        SuccessOrQuit(decoder.ReadUintPacked(propKey));
+        SuccessOrQuit(decoder.ReadUintPacked(mLastStatus));
+    }
+    uint32_t getSpinelStatus() { return mLastStatus; }
 
-        uint8_t getLastIid()
-        {
-            /* Return as SPINEL_HEADER_IID_N format without shift */
-            return SPINEL_HEADER_IID_MASK & mLastHeader;
-        }
+    uint8_t getLastIid()
+    {
+        /* Return as SPINEL_HEADER_IID_N format without shift */
+        return SPINEL_HEADER_IID_MASK & mLastHeader;
+    }
 
-        uint8_t getLastTid()
-        {
-            return SPINEL_HEADER_GET_TID(mLastHeader);
-        }
+    uint8_t getLastTid() { return SPINEL_HEADER_GET_TID(mLastHeader); }
 
-        bool gotResponse(uint8_t aIid, uint8_t aTid)
-        {
-            return ((aIid == getLastIid()) &&
-                    (aTid == getLastTid()));
-        }
+    bool gotResponse(uint8_t aIid, uint8_t aTid) { return ((aIid == getLastIid()) && (aTid == getLastTid())); }
 
-        size_t getPendingQueueSize()
-        { 
-        #if OPENTHREAD_CONFIG_MULTIPAN_RCP_ENABLE && \
-            (OPENTHREAD_RADIO || OPENTHREAD_CONFIG_LINK_RAW_ENABLE)
-            return GetPendingCommandQueueSize();
-        #else
-            return 0;
-        #endif
-        };
+    size_t getPendingQueueSize()
+    {
+#if OPENTHREAD_CONFIG_MULTIPAN_RCP_ENABLE && (OPENTHREAD_RADIO || OPENTHREAD_CONFIG_LINK_RAW_ENABLE)
+        return GetPendingCommandQueueSize();
+#else
+        return 0;
+#endif
+    };
 
-        size_t getMaxPendingQueueSize()
-        {
-        #if OPENTHREAD_CONFIG_MULTIPAN_RCP_ENABLE && \
-            (OPENTHREAD_RADIO || OPENTHREAD_CONFIG_LINK_RAW_ENABLE)
-            return kPendingCommandQueueSize; 
-        #else
-            return 0;
-        #endif
-        };
+    size_t getMaxPendingQueueSize()
+    {
+#if OPENTHREAD_CONFIG_MULTIPAN_RCP_ENABLE && (OPENTHREAD_RADIO || OPENTHREAD_CONFIG_LINK_RAW_ENABLE)
+        return kPendingCommandQueueSize;
+#else
+        return 0;
+#endif
+    };
 
-    private:
-        uint8_t mLastHeader;
-        uint32_t mLastStatus;
-        uint8_t mMsgBuffer[kTestBufferSize];
+private:
+    uint8_t  mLastHeader;
+    uint32_t mLastStatus;
+    uint8_t  mMsgBuffer[kTestBufferSize];
 };
 
 class TestHost
 {
-    public:
-        TestHost(std::shared_ptr<TestNcp> aNcp, uint8_t aIid) :
-        mNcp(aNcp),
-        mIid(aIid),
-        mTid(0),
-        mBuffer(mBuf, kTestBufferSize),
-        mEncoder(mBuffer),
-        mOffset(0)
-        {
-            memset(mBuf, 0, kTestBufferSize);
-        };
+public:
+    TestHost(std::shared_ptr<TestNcp> aNcp, uint8_t aIid)
+        : mNcp(aNcp)
+        , mIid(aIid)
+        , mTid(0)
+        , mBuffer(mBuf, kTestBufferSize)
+        , mEncoder(mBuffer)
+        , mOffset(0)
+    {
+        memset(mBuf, 0, kTestBufferSize);
+    };
 
-        void createLinkEnableFrame(bool isEnabled)
-        {        
-            startFrame(mEncoder, SPINEL_CMD_PROP_VALUE_SET, SPINEL_PROP_PHY_ENABLED);
-            SuccessOrQuit(mEncoder.WriteBool(isEnabled));
-            endFrame(mEncoder, "Enable Frame");
+    void createLinkEnableFrame(bool isEnabled)
+    {
+        startFrame(mEncoder, SPINEL_CMD_PROP_VALUE_SET, SPINEL_PROP_PHY_ENABLED);
+        SuccessOrQuit(mEncoder.WriteBool(isEnabled));
+        endFrame(mEncoder, "Enable Frame");
+    }
+
+    void createTransmitFrame()
+    {
+        startFrame(mEncoder, SPINEL_CMD_PROP_VALUE_SET, SPINEL_PROP_STREAM_RAW);
+
+        SuccessOrQuit(mEncoder.WriteDataWithLen(sDefaultFrame.mPsdu, sDefaultFrame.mLength));
+        SuccessOrQuit(mEncoder.WriteUint8(sDefaultFrame.mChannel));
+        SuccessOrQuit(mEncoder.WriteUint8(sDefaultFrame.mInfo.mTxInfo.mMaxCsmaBackoffs));
+        SuccessOrQuit(mEncoder.WriteUint8(sDefaultFrame.mInfo.mTxInfo.mMaxFrameRetries));
+        SuccessOrQuit(mEncoder.WriteBool(sDefaultFrame.mInfo.mTxInfo.mCsmaCaEnabled));
+        SuccessOrQuit(mEncoder.WriteBool(sDefaultFrame.mInfo.mTxInfo.mIsHeaderUpdated));
+        SuccessOrQuit(mEncoder.WriteBool(sDefaultFrame.mInfo.mTxInfo.mIsARetx));
+        SuccessOrQuit(mEncoder.WriteBool(sDefaultFrame.mInfo.mTxInfo.mIsSecurityProcessed));
+        SuccessOrQuit(mEncoder.WriteUint32(sDefaultFrame.mInfo.mTxInfo.mTxDelay));
+        SuccessOrQuit(mEncoder.WriteUint32(sDefaultFrame.mInfo.mTxInfo.mTxDelayBaseTime));
+
+        endFrame(mEncoder, "Transmit Frame");
+    }
+
+    void createScanChannelMaskFrame(uint32_t aMask)
+    {
+        startFrame(mEncoder, SPINEL_CMD_PROP_VALUE_SET, SPINEL_PROP_MAC_SCAN_MASK);
+        SuccessOrQuit(mEncoder.WriteUint8(aMask));
+        endFrame(mEncoder, "Channel Mask Frame");
+    }
+
+    void createMacScanFrame()
+    {
+        uint8_t state = SPINEL_SCAN_STATE_ENERGY;
+
+        startFrame(mEncoder, SPINEL_CMD_PROP_VALUE_SET, SPINEL_PROP_MAC_SCAN_STATE);
+        SuccessOrQuit(mEncoder.WriteUint8(state));
+        endFrame(mEncoder, "Scan State Frame");
+    }
+
+    void createReadStatusFrame()
+    {
+        startFrame(mEncoder, SPINEL_CMD_PROP_VALUE_GET, SPINEL_PROP_LAST_STATUS);
+        endFrame(mEncoder, "Read Status Frame");
+    }
+
+    void enableRawLink()
+    {
+        static const bool isLinkEnabled = true;
+        createLinkEnableFrame(isLinkEnabled);
+        sendToRcp();
+    }
+
+    void disableRawLink()
+    {
+        static const bool isLinkEnabled = false;
+        createLinkEnableFrame(isLinkEnabled);
+        sendToRcp();
+    }
+
+    spinel_status_t startTransmit()
+    {
+        static const bool getResponse = true;
+        createTransmitFrame();
+        sendToRcp(getResponse);
+        return (spinel_status_t)(mNcp->getSpinelStatus());
+    };
+
+    void setScanChannelMask(uint32_t aMask)
+    {
+        createScanChannelMaskFrame(aMask);
+        sendToRcp();
+    }
+
+    uint32_t startEnergyScan()
+    {
+        static const bool getResponse = true;
+        createMacScanFrame();
+        sendToRcp(getResponse);
+        return mNcp->getSpinelStatus();
+    }
+
+    void getCommandStatus()
+    {
+        createReadStatusFrame();
+        sendToRcp();
+    }
+
+    void finishTransmit()
+    {
+        /* Reset instance submac state to sleep by resetting link
+           This is needed for a second transmit command to succeed
+           as the HandleTimer method will not be called to reset the submac */
+        disableRawLink();
+        enableRawLink();
+
+        /* Proceed with transmit done callback from ncp */
+        mNcp->processTransmit();
+    };
+
+private:
+    void startFrame(Spinel::Encoder &aEncoder, unsigned int aCommand, spinel_prop_key_t aKey)
+    {
+        uint8_t spinelHeader = SPINEL_HEADER_FLAG | mIid | mTid;
+
+        SuccessOrQuit(aEncoder.BeginFrame(Spinel::Buffer::kPriorityLow));
+        SuccessOrQuit(aEncoder.WriteUint8(spinelHeader));
+        SuccessOrQuit(aEncoder.WriteUintPacked(aCommand));
+        SuccessOrQuit(aEncoder.WriteUintPacked(aKey));
+    }
+
+    void endFrame(Spinel::Encoder &aEncoder, const char *aTextMessage)
+    {
+        static const uint16_t display_length = 64;
+        SuccessOrQuit(aEncoder.EndFrame());
+        // DumpBuffer(aTextMessage, mBuf, display_length);
+    }
+
+    void sendToRcp(bool needsResponse = false)
+    {
+        static const uint8_t data_offset     = 2;
+        bool                 requestResponse = false;
+
+        size_t frame_len = mBuffer.OutFrameGetLength();
+
+        mOffset += data_offset;
+
+        mNcp->Receive(mBuf + mOffset, frame_len);
+
+        /* Some spinel commands immediately send queued responses when command is complete
+           while others require a separate command to the ncp in order to receive the response.
+           If a response is needed and not immediately received. Issue a command to update the status. */
+        requestResponse = needsResponse && !mNcp->gotResponse(mIid, mTid);
+
+        mTid = SPINEL_GET_NEXT_TID(mTid);
+        SuccessOrQuit(mBuffer.OutFrameRemove());
+
+        mOffset += frame_len;
+        mOffset %= kTestBufferSize;
+
+        if (requestResponse)
+        {
+            getCommandStatus();
         }
+    }
 
-        void createTransmitFrame()
-        {
-            startFrame(mEncoder, SPINEL_CMD_PROP_VALUE_SET, SPINEL_PROP_STREAM_RAW);
-
-            SuccessOrQuit(mEncoder.WriteDataWithLen(sDefaultFrame.mPsdu, sDefaultFrame.mLength));
-            SuccessOrQuit(mEncoder.WriteUint8(sDefaultFrame.mChannel));
-            SuccessOrQuit(mEncoder.WriteUint8(sDefaultFrame.mInfo.mTxInfo.mMaxCsmaBackoffs));
-            SuccessOrQuit(mEncoder.WriteUint8(sDefaultFrame.mInfo.mTxInfo.mMaxFrameRetries));
-            SuccessOrQuit(mEncoder.WriteBool(sDefaultFrame.mInfo.mTxInfo.mCsmaCaEnabled));
-            SuccessOrQuit(mEncoder.WriteBool(sDefaultFrame.mInfo.mTxInfo.mIsHeaderUpdated));
-            SuccessOrQuit(mEncoder.WriteBool(sDefaultFrame.mInfo.mTxInfo.mIsARetx));
-            SuccessOrQuit(mEncoder.WriteBool(sDefaultFrame.mInfo.mTxInfo.mIsSecurityProcessed));
-            SuccessOrQuit(mEncoder.WriteUint32(sDefaultFrame.mInfo.mTxInfo.mTxDelay));
-            SuccessOrQuit(mEncoder.WriteUint32(sDefaultFrame.mInfo.mTxInfo.mTxDelayBaseTime));
-
-            endFrame(mEncoder, "Transmit Frame");
-        }
-
-        void createScanChannelMaskFrame(uint32_t aMask)
-        {
-            startFrame(mEncoder, SPINEL_CMD_PROP_VALUE_SET, SPINEL_PROP_MAC_SCAN_MASK);
-            SuccessOrQuit(mEncoder.WriteUint8(aMask));
-            endFrame(mEncoder, "Channel Mask Frame");
-        }
-
-        void createMacScanFrame()
-        {
-            uint8_t state = SPINEL_SCAN_STATE_ENERGY;
-
-            startFrame(mEncoder, SPINEL_CMD_PROP_VALUE_SET, SPINEL_PROP_MAC_SCAN_STATE);
-            SuccessOrQuit(mEncoder.WriteUint8(state));
-            endFrame(mEncoder, "Scan State Frame");
-        }
-
-        void createReadStatusFrame()
-        {
-            startFrame(mEncoder, SPINEL_CMD_PROP_VALUE_GET, SPINEL_PROP_LAST_STATUS);
-            endFrame(mEncoder, "Read Status Frame");
-        }
-
-        void enableRawLink()
-        {
-            static const bool isLinkEnabled = true;
-            createLinkEnableFrame(isLinkEnabled);
-            sendToRcp();
-        }
-
-        void disableRawLink()
-        {
-            static const bool isLinkEnabled = false;
-            createLinkEnableFrame(isLinkEnabled);
-            sendToRcp();
-        }
-
-        spinel_status_t startTransmit() 
-        {
-            static const bool getResponse = true;
-            createTransmitFrame();
-            sendToRcp(getResponse);
-            return (spinel_status_t)(mNcp->getSpinelStatus());
-        };
-
-        void setScanChannelMask(uint32_t aMask)
-        {
-            createScanChannelMaskFrame(aMask);
-            sendToRcp();
-        }
-
-        uint32_t startEnergyScan()
-        {
-            static const bool getResponse = true;
-            createMacScanFrame();
-            sendToRcp(getResponse);
-            return mNcp->getSpinelStatus();
-        }
-
-        void getCommandStatus() 
-        {
-            createReadStatusFrame();
-            sendToRcp();
-        }
-
-        void finishTransmit()
-        {
-            /* Reset instance submac state to sleep by resetting link
-               This is needed for a second transmit command to succeed
-               as the HandleTimer method will not be called to reset the submac */
-            disableRawLink();
-            enableRawLink();
-
-            /* Proceed with transmit done callback from ncp */
-            mNcp->processTransmit();
-        };
-
-    private:
-
-        void startFrame(Spinel::Encoder &aEncoder, unsigned int aCommand, spinel_prop_key_t aKey)
-        {
-            uint8_t spinelHeader = SPINEL_HEADER_FLAG | mIid | mTid;
-            
-            SuccessOrQuit(aEncoder.BeginFrame(Spinel::Buffer::kPriorityLow));
-            SuccessOrQuit(aEncoder.WriteUint8(spinelHeader));
-            SuccessOrQuit(aEncoder.WriteUintPacked(aCommand));
-            SuccessOrQuit(aEncoder.WriteUintPacked(aKey));
-        }
-
-        void endFrame(Spinel::Encoder &aEncoder, const char *aTextMessage)
-        {
-            static const uint16_t display_length = 64; 
-            SuccessOrQuit(aEncoder.EndFrame());
-            //DumpBuffer(aTextMessage, mBuf, display_length);
-        }
-
-        void sendToRcp(bool needsResponse = false)
-        {
-            static const uint8_t data_offset = 2;
-            bool requestResponse = false;
-
-            size_t frame_len = mBuffer.OutFrameGetLength();
-
-            mOffset += data_offset;
-            
-            mNcp->Receive(mBuf + mOffset, frame_len);
-
-            /* Some spinel commands immediately send queued responses when command is complete
-               while others require a separate command to the ncp in order to receive the response.
-               If a response is needed and not immediately received. Issue a command to update the status. */
-            requestResponse = needsResponse && !mNcp->gotResponse(mIid, mTid);
-
-            mTid = SPINEL_GET_NEXT_TID(mTid);
-            SuccessOrQuit(mBuffer.OutFrameRemove());
-
-            mOffset += frame_len;
-            mOffset %= kTestBufferSize;
-
-            if (requestResponse)
-            {
-                getCommandStatus();
-            }
-        }
-
-        std::shared_ptr<TestNcp> mNcp;
-        uint8_t mIid;
-        uint8_t mTid;
-        uint8_t mBuf[kTestBufferSize];
-        Spinel::Buffer mBuffer;
-        Spinel::Encoder mEncoder;
-        size_t mOffset;
+    std::shared_ptr<TestNcp> mNcp;
+    uint8_t                  mIid;
+    uint8_t                  mTid;
+    uint8_t                  mBuf[kTestBufferSize];
+    Spinel::Buffer           mBuffer;
+    Spinel::Encoder          mEncoder;
+    size_t                   mOffset;
 };
 
 void TestNcpBaseTransmitWithLinkRawDisabled()
@@ -372,8 +357,8 @@ void TestNcpBaseTransmitWithLinkRawDisabled()
     VerifyOrQuit(instance != nullptr);
 
     std::shared_ptr<TestNcp> ncp = std::make_shared<TestNcp>(instance);
-    TestHost host(ncp, SPINEL_HEADER_IID_0);
-   
+    TestHost                 host(ncp, SPINEL_HEADER_IID_0);
+
     host.disableRawLink();
 
     /* Test that the response status is Invalid State when transmit is skipped due to disabled link */
@@ -391,7 +376,7 @@ void TestNcpBaseTransmitWithLinkRawEnabled()
     VerifyOrQuit(instance != nullptr);
 
     std::shared_ptr<TestNcp> ncp = std::make_shared<TestNcp>(instance);
-    TestHost host(ncp, SPINEL_HEADER_IID_0);
+    TestHost                 host(ncp, SPINEL_HEADER_IID_0);
 
     host.enableRawLink();
 
@@ -416,7 +401,7 @@ void TestNcpBaseTransmitWithNoBuffers()
     VerifyOrQuit(instance != nullptr);
 
     std::shared_ptr<TestNcp> ncp = std::make_shared<TestNcp>(instance);
-    TestHost host(ncp, SPINEL_HEADER_IID_0);
+    TestHost                 host(ncp, SPINEL_HEADER_IID_0);
 
     host.enableRawLink();
 
@@ -438,10 +423,10 @@ void TestNcpBaseTransmitWhileLinkIsBusy()
     VerifyOrQuit(instance != nullptr);
 
     std::shared_ptr<TestNcp> ncp = std::make_shared<TestNcp>(instance);
-    TestHost host(ncp, SPINEL_HEADER_IID_0);
+    TestHost                 host(ncp, SPINEL_HEADER_IID_0);
 
     host.enableRawLink();
-    
+
     VerifyOrQuit(host.startTransmit() == SPINEL_STATUS_OK);
     VerifyOrQuit(ncp->getPendingQueueSize() == 0);
 
@@ -474,10 +459,10 @@ void TestNcpBaseExceedPendingCommandQueueSize()
     VerifyOrQuit(instance != nullptr);
 
     std::shared_ptr<TestNcp> ncp = std::make_shared<TestNcp>(instance);
-    TestHost host(ncp, SPINEL_HEADER_IID_0);
+    TestHost                 host(ncp, SPINEL_HEADER_IID_0);
 
     host.enableRawLink();
-    
+
     /* Test that the response status is OK and queue size increases until its maximum size */
     for (size_t i = 0; i <= ncp->getMaxPendingQueueSize(); i++)
     {
@@ -511,7 +496,7 @@ void TestNcpBaseEnergyScanWithLinkRawDisabled()
     VerifyOrQuit(instance != nullptr);
 
     std::shared_ptr<TestNcp> ncp = std::make_shared<TestNcp>(instance);
-    TestHost host(ncp, SPINEL_HEADER_IID_0);
+    TestHost                 host(ncp, SPINEL_HEADER_IID_0);
 
     host.disableRawLink();
 
@@ -534,7 +519,7 @@ void TestNcpBaseEnergyScanWithLinkRawEnabled()
     VerifyOrQuit(instance != nullptr);
 
     std::shared_ptr<TestNcp> ncp = std::make_shared<TestNcp>(instance);
-    TestHost host(ncp, SPINEL_HEADER_IID_0);
+    TestHost                 host(ncp, SPINEL_HEADER_IID_0);
 
     host.enableRawLink();
 
@@ -553,8 +538,8 @@ void TestNcpBaseEnergyScanWithLinkRawEnabledAndMaskSet()
     VerifyOrQuit(instance != nullptr);
 
     std::shared_ptr<TestNcp> ncp = std::make_shared<TestNcp>(instance);
-    TestHost host(ncp, SPINEL_HEADER_IID_0);
-   
+    TestHost                 host(ncp, SPINEL_HEADER_IID_0);
+
     host.enableRawLink();
     host.setScanChannelMask(kTestMacScanChannelMask);
 
@@ -575,12 +560,12 @@ void TestNcpBaseEnergyScanWhileLinkIsBusy()
     VerifyOrQuit(instance != nullptr);
 
     std::shared_ptr<TestNcp> ncp = std::make_shared<TestNcp>(instance);
-    TestHost host(ncp, SPINEL_HEADER_IID_0);
-    
-    otError ret = OT_ERROR_NONE;
+    TestHost                 host(ncp, SPINEL_HEADER_IID_0);
+
+    otError         ret        = OT_ERROR_NONE;
     spinel_status_t spinel_ret = SPINEL_STATUS_OK;
 
-    host.enableRawLink();  
+    host.enableRawLink();
     host.setScanChannelMask(kTestMacScanChannelMask);
 
     VerifyOrQuit((spinel_scan_state_t)host.startEnergyScan() == SPINEL_SCAN_STATE_ENERGY);
@@ -615,10 +600,10 @@ void TestNcpBaseEnergyScanWhileTransmitting()
     VerifyOrQuit(instance != nullptr);
 
     std::shared_ptr<TestNcp> ncp = std::make_shared<TestNcp>(instance);
-    TestHost host(ncp, SPINEL_HEADER_IID_0);
+    TestHost                 host(ncp, SPINEL_HEADER_IID_0);
 
     host.enableRawLink();
-    
+
     VerifyOrQuit(host.startTransmit() == SPINEL_STATUS_OK);
     VerifyOrQuit(ncp->getPendingQueueSize() == 0);
 
@@ -654,13 +639,13 @@ void TestNcpBaseTransmitWhileScanning()
     VerifyOrQuit(instance != nullptr);
 
     std::shared_ptr<TestNcp> ncp = std::make_shared<TestNcp>(instance);
-    TestHost host(ncp, SPINEL_HEADER_IID_0);
+    TestHost                 host(ncp, SPINEL_HEADER_IID_0);
 
     host.enableRawLink();
     host.setScanChannelMask(kTestMacScanChannelMask);
 
     VerifyOrQuit((spinel_scan_state_t)host.startEnergyScan() == SPINEL_SCAN_STATE_ENERGY);
-    VerifyOrQuit(ncp->getPendingQueueSize() == 0);  
+    VerifyOrQuit(ncp->getPendingQueueSize() == 0);
 
     /* Test that the response status is OK when energy scan is in progress
        Test that requesting transmit while energy scan is active enqueues the command */
@@ -668,7 +653,7 @@ void TestNcpBaseTransmitWhileScanning()
     VerifyOrQuit(ncp->getPendingQueueSize() == 1);
 
     VerifyOrQuit(host.startTransmit() == SPINEL_STATUS_OK);
-    VerifyOrQuit(ncp->getPendingQueueSize() == 2);  
+    VerifyOrQuit(ncp->getPendingQueueSize() == 2);
 
     /* Test that transmit command is dequeued when energy scan is complete */
     ncp->processEnergyScan();
@@ -692,17 +677,17 @@ void TestNcpBaseMultiHostTransmit()
     VerifyOrQuit(instance != nullptr);
 
     std::shared_ptr<TestNcp> ncp = std::make_shared<TestNcp>(instance);
-    TestHost host0(ncp, SPINEL_HEADER_IID_1), host1(ncp, SPINEL_HEADER_IID_2);
+    TestHost                 host0(ncp, SPINEL_HEADER_IID_1), host1(ncp, SPINEL_HEADER_IID_2);
 
     host0.enableRawLink();
     host1.enableRawLink();
 
     /* Test that a host with a non-zero iid can request a transmit */
     VerifyOrQuit(host0.startTransmit() == SPINEL_STATUS_OK);
-    VerifyOrQuit(ncp->getPendingQueueSize() == 0);  
+    VerifyOrQuit(ncp->getPendingQueueSize() == 0);
 
     host0.finishTransmit();
-    VerifyOrQuit(ncp->getPendingQueueSize() == 0);  
+    VerifyOrQuit(ncp->getPendingQueueSize() == 0);
 
     VerifyOrQuit(host0.startTransmit() == SPINEL_STATUS_OK);
     VerifyOrQuit(ncp->getPendingQueueSize() == 0);
@@ -731,7 +716,7 @@ void TestNcpBaseMultiHostEnergyScan()
     VerifyOrQuit(instance != nullptr);
 
     std::shared_ptr<TestNcp> ncp = std::make_shared<TestNcp>(instance);
-    TestHost host0(ncp, SPINEL_HEADER_IID_1), host1(ncp, SPINEL_HEADER_IID_2);
+    TestHost                 host0(ncp, SPINEL_HEADER_IID_1), host1(ncp, SPINEL_HEADER_IID_2);
 
     host0.enableRawLink();
     host0.setScanChannelMask(kTestMacScanChannelMask);
@@ -741,10 +726,10 @@ void TestNcpBaseMultiHostEnergyScan()
 
     /* Test that a host with a non-zero iid can request an energy scan */
     VerifyOrQuit((spinel_scan_state_t)host0.startEnergyScan() == SPINEL_SCAN_STATE_ENERGY);
-    VerifyOrQuit(ncp->getPendingQueueSize() == 0);  
+    VerifyOrQuit(ncp->getPendingQueueSize() == 0);
 
     ncp->processEnergyScan();
-    VerifyOrQuit(ncp->getPendingQueueSize() == 0);  
+    VerifyOrQuit(ncp->getPendingQueueSize() == 0);
 
     VerifyOrQuit((spinel_scan_state_t)host0.startEnergyScan() == SPINEL_SCAN_STATE_ENERGY);
     VerifyOrQuit(ncp->getPendingQueueSize() == 0);
@@ -771,10 +756,9 @@ void TestNcpBaseMultiHostEnergyScan()
 int main(void)
 {
     sDefaultFrame.mPsdu = sDefaultMessage.mPsdu;
-    sTxFrame = &sDefaultFrame;
+    sTxFrame            = &sDefaultFrame;
 
-#if OPENTHREAD_CONFIG_MULTIPAN_RCP_ENABLE && \
-    (OPENTHREAD_RADIO || OPENTHREAD_CONFIG_LINK_RAW_ENABLE)
+#if OPENTHREAD_CONFIG_MULTIPAN_RCP_ENABLE && (OPENTHREAD_RADIO || OPENTHREAD_CONFIG_LINK_RAW_ENABLE)
     printf("Executing Transmit Tests\n");
     TestNcpBaseTransmitWithLinkRawDisabled();
     TestNcpBaseTransmitWithLinkRawEnabled();
@@ -801,7 +785,7 @@ int main(void)
 
 #endif
     printf("\nAll tests passed\n");
-    
+
 #else
     printf("MULTIPAN_RCP feature and RADIO/LINK_RAW option are not enabled\n");
 #endif

@@ -516,15 +516,18 @@ OT_TOOL_WEAK bool otPlatRadioIsCoexEnabled(otInstance *) { return true; }
 OT_TOOL_WEAK otError otPlatRadioSetCoexEnabled(otInstance *, bool) { return OT_ERROR_NOT_IMPLEMENTED; }
 
 #if OPENTHREAD_POSIX_CONFIG_MAX_POWER_TABLE_ENABLE
-OT_TOOL_WEAK otError otPlatRadioSetChannelTargetPower(otInstance *aInstance, uint8_t aChannel, int16_t aTargetPower) { return OT_ERROR_NONE; }
+OT_TOOL_WEAK otError otPlatRadioSetChannelTargetPower(otInstance *aInstance, uint8_t aChannel, int16_t aTargetPower)
+{
+    return OT_ERROR_NONE;
+}
 
 OT_TOOL_WEAK otError otPlatRadioAddCalibratedPower(otInstance    *aInstance,
-                                      uint8_t        aChannel,
-                                      int16_t        aActualPower,
-                                      const uint8_t *aRawPowerSetting,
-                                      uint16_t       aRawPowerSettingLength)
+                                                   uint8_t        aChannel,
+                                                   int16_t        aActualPower,
+                                                   const uint8_t *aRawPowerSetting,
+                                                   uint16_t       aRawPowerSettingLength)
 {
-    return OT_ERROR_NONE; 
+    return OT_ERROR_NONE;
 }
 
 OT_TOOL_WEAK otError otPlatRadioClearCalibratedPowers(otInstance *aInstance) { return OT_ERROR_NONE; }
