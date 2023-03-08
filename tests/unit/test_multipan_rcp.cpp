@@ -50,7 +50,7 @@ enum
 
 enum
 {
-    kTestMacScanChannelMask = 0x0001
+    kTestMacScanChannelMask = 0x01
 };
 
 OT_TOOL_PACKED_BEGIN
@@ -105,7 +105,7 @@ public:
         updateSpinelStatus();
     }
 
-    void Receive(uint8_t *aBuffer, size_t bufferSize) { HandleReceive(aBuffer, bufferSize); }
+    void Receive(uint8_t *aBuffer, size_t bufferSize) { HandleReceive(aBuffer, (uint16_t)bufferSize); }
 
     void processTransmit()
     {
@@ -132,17 +132,19 @@ public:
     {
         Spinel::Decoder decoder;
 
-        uint8_t           header;
-        unsigned int      command;
-        spinel_prop_key_t propKey;
-        spinel_status_t   status;
+        uint8_t      header;
+        unsigned int command;
+        unsigned int propKey;
+        unsigned int status;
 
         decoder.Init(mMsgBuffer, kTestBufferSize);
 
         SuccessOrQuit(decoder.ReadUint8(mLastHeader));
         SuccessOrQuit(decoder.ReadUintPacked(command));
         SuccessOrQuit(decoder.ReadUintPacked(propKey));
-        SuccessOrQuit(decoder.ReadUintPacked(mLastStatus));
+        SuccessOrQuit(decoder.ReadUintPacked(status));
+
+        mLastStatus = (uint32_t)status;
     }
     uint32_t getSpinelStatus() { return mLastStatus; }
 
@@ -219,7 +221,7 @@ public:
         endFrame(mEncoder, "Transmit Frame");
     }
 
-    void createScanChannelMaskFrame(uint32_t aMask)
+    void createScanChannelMaskFrame(uint8_t aMask)
     {
         startFrame(mEncoder, SPINEL_CMD_PROP_VALUE_SET, SPINEL_PROP_MAC_SCAN_MASK);
         SuccessOrQuit(mEncoder.WriteUint8(aMask));

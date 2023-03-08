@@ -534,4 +534,10 @@ OT_TOOL_WEAK otError otPlatRadioClearCalibratedPowers(otInstance *aInstance) { r
 
 #endif
 
+#if OPENTHREAD_CONFIG_NCP_ENABLE_MCU_POWER_STATE_CONTROL
+OT_TOOL_WEAK otPlatMcuPowerState otPlatGetMcuPowerState(otInstance *aInstance) { return OT_PLAT_MCU_POWER_STATE_ON; }
+
+OT_TOOL_WEAK otError otPlatSetMcuPowerState(otInstance *aInstance, otPlatMcuPowerState aState) { return OT_ERROR_NONE; }
+#endif
+
 } // extern "C"
