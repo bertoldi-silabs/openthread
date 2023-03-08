@@ -247,6 +247,8 @@ NcpBase::NcpBase(Instance *aInstance)
     , mCurTransmitTID(0)
     , mCurScanChannel(kInvalidScanChannel)
     , mSrcMatchEnabled(false)
+    , mPendingCommandQueueHead(0)
+    , mPendingCommandQueueTail(0)
 #endif // OPENTHREAD_RADIO || OPENTHREAD_CONFIG_LINK_RAW_ENABLE
 #if OPENTHREAD_MTD || OPENTHREAD_FTD
     , mInboundSecureIpFrameCounter(0)
