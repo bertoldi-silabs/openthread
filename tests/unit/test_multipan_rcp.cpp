@@ -367,6 +367,7 @@ class TestHost
 
 void TestNcpBaseTransmitWithLinkRawDisabled()
 {
+    printf("\tTransmit With Link Raw Disabled - ");
     ot::Instance *instance = testInitInstance();
     VerifyOrQuit(instance != nullptr);
 
@@ -380,10 +381,12 @@ void TestNcpBaseTransmitWithLinkRawDisabled()
     VerifyOrQuit(ncp->getPendingQueueSize() == 0);
 
     testFreeInstance(instance);
+    printf("PASS\n");
 }
 
 void TestNcpBaseTransmitWithLinkRawEnabled()
 {
+    printf("\tTransmit With Link Raw Enabled - ");
     ot::Instance *instance = testInitInstance();
     VerifyOrQuit(instance != nullptr);
 
@@ -399,10 +402,13 @@ void TestNcpBaseTransmitWithLinkRawEnabled()
     host.finishTransmit();
 
     testFreeInstance(instance);
+    printf("PASS\n");
 }
 
 void TestNcpBaseTransmitWithNoBuffers()
 {
+    printf("\tTransmit With No Buffers - ");
+
     /* Initialize instance without an available tx buffer */
     sTxFrame = nullptr;
 
@@ -422,10 +428,12 @@ void TestNcpBaseTransmitWithNoBuffers()
 
     /* Reset static tx buffer reference for remaining tests */
     sTxFrame = &sDefaultFrame;
+    printf("PASS\n");
 }
 
 void TestNcpBaseTransmitWhileLinkIsBusy()
 {
+    printf("\tTransmit While Link Is Busy - ");
     ot::Instance *instance = testInitInstance();
     VerifyOrQuit(instance != nullptr);
 
@@ -456,10 +464,12 @@ void TestNcpBaseTransmitWhileLinkIsBusy()
     VerifyOrQuit(ncp->getPendingQueueSize() == 0);
 
     testFreeInstance(instance);
+    printf("PASS\n");
 }
 
 void TestNcpBaseExceedPendingCommandQueueSize()
 {
+    printf("\tExceed Pending Command Queue Size - ");
     ot::Instance *instance = testInitInstance();
     VerifyOrQuit(instance != nullptr);
 
@@ -491,10 +501,12 @@ void TestNcpBaseExceedPendingCommandQueueSize()
     VerifyOrQuit(ncp->getPendingQueueSize() == 0);
 
     testFreeInstance(instance);
+    printf("PASS\n");
 }
 
 void TestNcpBaseEnergyScanWithLinkRawDisabled()
 {
+    printf("\tEnergy Scan With Link Raw Disabled - ");
     ot::Instance *instance = testInitInstance();
     VerifyOrQuit(instance != nullptr);
 
@@ -512,10 +524,12 @@ void TestNcpBaseEnergyScanWithLinkRawDisabled()
     VerifyOrQuit(ncp->getPendingQueueSize() == 0);
 
     testFreeInstance(instance);
+    printf("PASS\n");
 }
 
 void TestNcpBaseEnergyScanWithLinkRawEnabled()
 {
+    printf("\tEnergy Scan With Link Raw Enabled - ");
     ot::Instance *instance = testInitInstance();
     VerifyOrQuit(instance != nullptr);
 
@@ -529,10 +543,12 @@ void TestNcpBaseEnergyScanWithLinkRawEnabled()
     VerifyOrQuit(ncp->getPendingQueueSize() == 0);
 
     testFreeInstance(instance);
+    printf("PASS\n");
 }
 
 void TestNcpBaseEnergyScanWithLinkRawEnabledAndMaskSet()
 {
+    printf("\tEnergy Scan With Link Raw Enabled And Mask Set - ");
     ot::Instance *instance = testInitInstance();
     VerifyOrQuit(instance != nullptr);
 
@@ -549,10 +565,12 @@ void TestNcpBaseEnergyScanWithLinkRawEnabledAndMaskSet()
     ncp->processEnergyScan();
 
     testFreeInstance(instance);
+    printf("PASS\n");
 }
 
 void TestNcpBaseEnergyScanWhileLinkIsBusy()
 {
+    printf("\tEnergy Scan While Link Is Busy - ");
     ot::Instance *instance = testInitInstance();
     VerifyOrQuit(instance != nullptr);
 
@@ -587,10 +605,12 @@ void TestNcpBaseEnergyScanWhileLinkIsBusy()
     VerifyOrQuit(ncp->getPendingQueueSize() == 0);
 
     testFreeInstance(instance);
+    printf("PASS\n");
 }
 
 void TestNcpBaseEnergyScanWhileTransmitting()
 {
+    printf("\tEnergy Scan While Transmitting - ");
     ot::Instance *instance = testInitInstance();
     VerifyOrQuit(instance != nullptr);
 
@@ -624,10 +644,12 @@ void TestNcpBaseEnergyScanWhileTransmitting()
     VerifyOrQuit(ncp->getPendingQueueSize() == 0);
 
     testFreeInstance(instance);
+    printf("PASS\n");
 }
 
 void TestNcpBaseTransmitWhileScanning()
 {
+    printf("\tTransmit While Scanning - ");
     ot::Instance *instance = testInitInstance();
     VerifyOrQuit(instance != nullptr);
 
@@ -660,10 +682,12 @@ void TestNcpBaseTransmitWhileScanning()
     VerifyOrQuit(ncp->getPendingQueueSize() == 0);
 
     testFreeInstance(instance);
+    printf("PASS\n");
 }
 
 void TestNcpBaseMultiHostTransmit()
 {
+    printf("\tMulti Host Transmit - ");
     ot::Instance *instance = testInitInstance();
     VerifyOrQuit(instance != nullptr);
 
@@ -695,10 +719,14 @@ void TestNcpBaseMultiHostTransmit()
 
     host1.finishTransmit();
     VerifyOrQuit(ncp->getPendingQueueSize() == 0);
+
+    testFreeInstance(instance);
+    printf("PASS\n");
 }
 
 void TestNcpBaseMultiHostEnergyScan()
 {
+    printf("\tMulti Host Energy Scan - ");
     ot::Instance *instance = testInitInstance();
     VerifyOrQuit(instance != nullptr);
 
@@ -735,6 +763,9 @@ void TestNcpBaseMultiHostEnergyScan()
 
     ncp->processEnergyScan();
     VerifyOrQuit(ncp->getPendingQueueSize() == 0);
+
+    testFreeInstance(instance);
+    printf("PASS\n");
 }
 
 int main(void)
@@ -744,12 +775,16 @@ int main(void)
 
 #if OPENTHREAD_CONFIG_MULTIPAN_RCP_ENABLE && \
     (OPENTHREAD_RADIO || OPENTHREAD_CONFIG_LINK_RAW_ENABLE)
-
+    printf("Executing Transmit Tests\n");
     TestNcpBaseTransmitWithLinkRawDisabled();
     TestNcpBaseTransmitWithLinkRawEnabled();
     TestNcpBaseTransmitWithNoBuffers();
     TestNcpBaseTransmitWhileLinkIsBusy();
     TestNcpBaseExceedPendingCommandQueueSize();
+    printf("Transmit Tests - PASS\n");
+
+#if OPENTHREAD_CONFIG_MAC_SOFTWARE_ENERGY_SCAN_ENABLE
+    printf("Executing Energy Scan Tests\n");
     TestNcpBaseEnergyScanWithLinkRawDisabled();
     TestNcpBaseEnergyScanWithLinkRawEnabled();
     TestNcpBaseEnergyScanWithLinkRawEnabledAndMaskSet();
@@ -758,11 +793,17 @@ int main(void)
     TestNcpBaseTransmitWhileScanning();
     TestNcpBaseMultiHostTransmit();
     TestNcpBaseMultiHostEnergyScan();
+    printf("Energy Scan Tests - PASS\n");
 
+#else
+    printf("MAC_SOFTWARE_ENERGY_SCAN configuration not enabled - ");
+    printf("Skipping Energy Scan Tests\n");
+
+#endif
     printf("\nAll tests passed\n");
+    
 #else
     printf("MULTIPAN_RCP feature and RADIO/LINK_RAW option are not enabled\n");
 #endif
-
     return 0;
 }
